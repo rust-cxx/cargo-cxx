@@ -83,4 +83,7 @@ pub fn new(name:&str)
 
 	let mut gitignore = File::create(&Path::new(&".").join(name).join(".gitignore")).unwrap();
 	gitignore.write(b"/target\n**/*.rs.bk").unwrap();
+
+	let mut build = File::create(&Path::new(&".").join(name).join("build.rs")).unwrap();
+	build.write(b"fn main()\n{\n	cmake_cli::build();\n}").unwrap();
 }
