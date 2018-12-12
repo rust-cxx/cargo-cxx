@@ -6,7 +6,7 @@ edition = "2018"
 keywords = ["c++", "build", "cargo", "plugin", "package", "manager"]
 
 [lib]
-name = "cli"
+name = "cmake_cli"
 path = "src/lib.rs"
 
 [[bin]]

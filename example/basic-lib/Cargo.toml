@@ -1,0 +1,13 @@
+[package]
+name = "basic-lib"
+version = "0.1.0"
+authors = ["Rui <2221870259@qq.com>"]
+edition = "2018"
+build = "build.rs"
+
+[build-dependencies.cargo-cmake]
+path = "../../"
+
+[lib]
+name = "basic_lib"
+path = "lib.rs"
