@@ -1,0 +1,18 @@
+[package]
+name = "cargo-cmake"
+version = "0.1.0"
+authors = ["Rui <2221870259@qq.com>"]
+edition = "2018"
+keywords = ["c++", "build", "cargo", "plugin", "package", "manager"]
+
+[lib]
+name = "cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cargo-cmake"
+path = "src/main.rs"
+
+[dependencies]
+argparse = "0.2.2"
+cmake = "0.1"
