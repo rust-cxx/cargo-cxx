@@ -1,13 +1,28 @@
 extern crate cmake;
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
 
 use std::env;
 use std::fs::File;
 use std::fs::DirBuilder;
 use std::path::Path;
 use std::io::Write;
+use std::io::Read;
+use std::fs::OpenOptions;
 
 use argparse::Store;
 use argparse::ArgumentParser;
+
+use serde_json::Error;
+
+#[derive(Serialize, Deserialize)]
+struct libs
+{
+}
+
 
 fn generator_cmake(target:&str, curdir:&str) -> String
 {
@@ -68,6 +83,15 @@ pub fn build()
 			.define("CMAKE_BUILD_TYPE", &profile)
 			.build();
 	}
+
+ 	let mut contents = String::new();
+	let mut json = OpenOptions::new()
+		.create(true)
+		.write(true)
+		.open(&Path::new(&outpath).join("../../../libs.json")).unwrap();
+
+    json.read_to_string(&mut contents);
+	json.write((contents + &outpath).as_bytes()).unwrap();
 
 	println!("cargo:rustc-link-search=native={}", outpath+"/lib");
 	println!("cargo:rustc-link-lib=static={}", pkg_name);
