@@ -1,6 +1,6 @@
 [package]
 name = "cargo-cxx"
-version = "0.1.0"
+version = "0.1.1"
 license = "GPL-3.0-only"
 authors = ["Rui <2221870259@qq.com>"]
 description = "CXX Pakcage Manager"

@@ -53,39 +53,46 @@ impl Config
 		}
 	}
 
-	pub fn project(&mut self, name:&str)
+	pub fn project(&mut self, name:&str) -> &mut Self
 	{
 		self.pkg_name = name.to_string();
+		self
 	}
 
-	pub fn profile(&mut self, profile:&str)
+	pub fn profile(&mut self, profile:&str) -> &mut Self
 	{
 		self.profile = profile.to_string();
+		self
 	}
 
-	pub fn link_type(&mut self, kind:LinkType)
+	pub fn link_type(&mut self, kind:LinkType) -> &mut Self
 	{
 		self.link_type = kind;
+		self
 	}
 
-	pub fn include(&mut self, path:&str)
+	pub fn include(&mut self, path:&str) -> &mut Self
 	{
 		self.include_paths.push(path.to_string());
+		self
 	}
 
-	pub fn link_path(&mut self, path:&str)
+	pub fn link_path(&mut self, path:&str) -> &mut Self
 	{
 		self.link_paths.push(path.to_string());
+		self
 	}
 
-	pub fn link(&mut self, path:&str)
+	pub fn link(&mut self, path:&str) -> &mut Self
 	{
 		self.libs.push(path.to_string());
+		self
 	}
 
-	pub fn define(&mut self, name:&str, value:&str)
+	pub fn define(&mut self, name:&str, value:&str) -> &mut Self
 	{
 		self.defines.push((name.to_string(), value.to_string()));
+		self
 	}
 
 	pub fn generator(&self) -> String
@@ -181,10 +188,16 @@ impl Config
 
 		if Path::new("CMakeLists.txt").exists()
 		{
-			cmake::Config::new(".")
-				.profile(&self.profile)
-				.define("CMAKE_BUILD_TYPE", &self.profile)
-				.build();
+			let mut make = cmake::Config::new(&self.outpath);
+			make.profile(&self.profile);
+			make.define("CMAKE_BUILD_TYPE", &self.profile);
+
+			for def in self.defines.iter()
+			{
+				make.define(&def.0, &def.1);
+			}
+
+			make.build();
 		}
 		else
 		{
