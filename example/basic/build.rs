@@ -1,5 +1,5 @@
 fn main()
 {
-	cmake_cli::Config::new()
+	cxx::Config::new()
 		.build_exce();
 }

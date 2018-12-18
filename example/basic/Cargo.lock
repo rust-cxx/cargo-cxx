@@ -8,18 +8,18 @@ name = "basic"
 version = "0.1.0"
 dependencies = [
  "basic-lib 0.1.0",
- "cargo-cmake 0.1.0",
+ "cargo-cxx 0.1.0",
 ]
 
 [[package]]
 name = "basic-lib"
 version = "0.1.0"
 dependencies = [
- "cargo-cmake 0.1.0",
+ "cargo-cxx 0.1.0",
 ]
 
 [[package]]
-name = "cargo-cmake"
+name = "cargo-cxx"
 version = "0.1.0"
 dependencies = [
  "argparse 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -9,7 +9,7 @@ links = "basic"
 [dependencies.basic-lib]
 path = "../basic-lib"
 
-[build-dependencies.cargo-cmake]
+[build-dependencies.cargo-cxx]
 path = "../../"
 
 [lib]

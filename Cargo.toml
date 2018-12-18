@@ -1,16 +1,16 @@
 [package]
-name = "cargo-cmake"
+name = "cargo-cxx"
 version = "0.1.0"
 authors = ["Rui <2221870259@qq.com>"]
 edition = "2018"
 keywords = ["c++", "build", "cargo", "plugin", "package", "manager"]
 
 [lib]
-name = "cmake_cli"
+name = "cxx"
 path = "src/lib.rs"
 
 [[bin]]
-name = "cargo-cmake"
+name = "cargo-cxx"
 path = "src/main.rs"
 
 [dependencies]

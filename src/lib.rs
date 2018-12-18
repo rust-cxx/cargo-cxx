@@ -258,5 +258,5 @@ pub fn new(name:&str)
 	gitignore.write(b"/target\n**/*.rs.bk").unwrap();
 
 	let mut build = File::create(&Path::new(&".").join(name).join("build.rs")).unwrap();
-	build.write(b"fn main()\n{\n	cmake_cli::Config::new().build();\n}").unwrap();
+	build.write(b"fn main()\n{\n	cxx::Config::new().build();\n}").unwrap();
 }
