@@ -1,9 +1,4 @@
 extern crate cmake;
-extern crate serde;
-extern crate serde_json;
-
-#[macro_use]
-extern crate serde_derive;
 
 use std::env;
 use std::fs;
@@ -14,6 +9,7 @@ use std::path::Path;
 use std::io::Write;
 use std::io::Read;
 
+#[derive(Debug, PartialEq)]
 pub enum LinkType
 {
 	Static,
@@ -27,9 +23,10 @@ pub struct Config
 	pkg_name:String,
 	profile:String,
 	outpath:String,
-	cmake_dir:std::path::PathBuf,
+	cmake_dir:String,
 	link_type:LinkType,
 	libs:Vec<String>,
+	defines:Vec<(String, String)>,
 	link_paths:Vec<String>,
 	include_paths:Vec<String>,
 }
@@ -45,14 +42,25 @@ impl Config
 		{
 			pkg_name:env::var("CARGO_PKG_NAME").ok().expect("Can't find CARGO_PKG_NAME"),
 			profile:env::var("PROFILE").ok().expect("Can't find PROFILE"),
-			cmake_dir:Path::new(&outpath).join("../../../").join("cmake-links"),
+			cmake_dir:outpath.clone() + "../../../../cmake-links",
 			link_type:LinkType::Static,
 			curdir:curdir.replace("\\","/"),
 			outpath:outpath,
 			libs:Vec::new(),
+			defines:Vec::new(),
 			link_paths:Vec::new(),
 			include_paths:vec![curdir.replace("\\","/") + "/include"],
 		}
+	}
+
+	pub fn project(&mut self, name:&str)
+	{
+		self.pkg_name = name.to_string();
+	}
+
+	pub fn profile(&mut self, profile:&str)
+	{
+		self.profile = profile.to_string();
 	}
 
 	pub fn link_type(&mut self, kind:LinkType)
@@ -60,24 +68,24 @@ impl Config
 		self.link_type = kind;
 	}
 
-	pub fn set_pkg_name(&mut self, name:&str)
+	pub fn include(&mut self, path:&str)
 	{
-		self.pkg_name = name.to_string();
+		self.include_paths.push(path.to_string());
 	}
 
-	pub fn add_include(&mut self, path:String)
+	pub fn link_path(&mut self, path:&str)
 	{
-		self.include_paths.push(path);
+		self.link_paths.push(path.to_string());
 	}
 
-	pub fn add_link_path(&mut self, path:String)
+	pub fn link(&mut self, path:&str)
 	{
-		self.link_paths.push(path);
+		self.libs.push(path.to_string());
 	}
 
-	pub fn add_lib(&mut self, path:String)
+	pub fn define(&mut self, name:&str, value:&str)
 	{
-		self.libs.push(path);
+		self.defines.push((name.to_string(), value.to_string()));
 	}
 
 	pub fn generator(&self) -> String
@@ -98,6 +106,9 @@ impl Config
 		cmake += "\n";
 		cmake += r#"SOURCE_GROUP(${LIB_NAME} FILES ${SOURCE_LIST})"#;
 		cmake += "\n\n";
+		cmake += "SET(CMAKE_CXX_STANDARD 17)\n";
+		cmake += "SET(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
+		cmake += "SET(CMAKE_CXX_EXTENSIONS OFF)\n";
 
 		match self.link_type
 		{
@@ -117,6 +128,14 @@ impl Config
 				cmake += "\n\n";
 			},
 		}
+
+		for def in self.defines.iter()
+		{
+			cmake += &format!(r#"TARGET_COMPILE_DEFINITIONS(${{LIB_NAME}} PRIVATE "{}={}")"#, def.0, def.1);
+			cmake += "\n";
+		}
+
+		cmake += "\n";
 
 		for path in self.link_paths.iter()
 		{
@@ -149,6 +168,17 @@ impl Config
 
 	pub fn build(&mut self)
 	{
+		{
+			DirBuilder::new().recursive(true).create(&Path::new(&self.cmake_dir)).unwrap();
+
+			let mut file = OpenOptions::new()
+				.create(true)
+				.write(true)
+				.open(&Path::new(&self.cmake_dir).join(format!("{}", self.pkg_name))).unwrap();
+
+			file.write(&self.outpath.as_bytes()).unwrap();
+		}
+
 		if Path::new("CMakeLists.txt").exists()
 		{
 			cmake::Config::new(".")
@@ -162,7 +192,7 @@ impl Config
 			{
 				if Path::new(&self.cmake_dir).exists()
 				{
-					let entries = fs::read_dir(&self.cmake_dir).unwrap();
+					let entries = fs::read_dir(&Path::new(&self.cmake_dir)).unwrap();
 					for entry in entries
 					{
 						let path = entry.unwrap().path();
@@ -173,9 +203,9 @@ impl Config
 							let mut contents = String::new();
 							file.read_to_string(&mut contents).unwrap();
 
-							self.add_lib(lib_name);
-							self.add_link_path(contents.replace("\\","/") + "/lib");
-							self.add_include(contents.replace("\\","/") + "/include");
+							self.link(&lib_name);
+							self.link_path(&(contents.replace("\\","/") + "/lib"));
+							self.include(&(contents.replace("\\","/") + "/include"));
 						}
 					}
 				}
@@ -190,21 +220,11 @@ impl Config
 				.build();
 		}
 
-		DirBuilder::new()
-			.recursive(true)
-			.create(&self.cmake_dir).unwrap();
-
-		let mut file = OpenOptions::new()
-			.create(true)
-			.write(true)
-			.open(&self.cmake_dir.join(format!("{}", self.pkg_name))).unwrap();
-
-		let mut contents = String::new();
-		file.read_to_string(&mut contents);
-		file.write((contents + &self.outpath).as_bytes()).unwrap();
-
-		println!("cargo:rustc-link-search=native={}", self.outpath.clone() + "/lib");
-		println!("cargo:rustc-link-lib=static={}", self.pkg_name);
+		if self.link_type != LinkType::Executables
+		{
+			println!("cargo:rustc-link-search=native={}", self.outpath.clone() + "/lib");
+			println!("cargo:rustc-link-lib=static={}", self.pkg_name);
+		}
 	}
 
 	pub fn build_exce(&mut self)
