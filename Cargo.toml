@@ -7,7 +7,7 @@ description = "CXX Pakcage Manager"
 homepage = "https://github.com/ray-cast/cargo-cxx"
 repository = "https://github.com/ray-cast/cargo-cxx.git"
 edition = "2018"
-keywords = ["cxx", "cplusplus", "build", "cargo", "plugin", "package", "manager"]
+keywords = ["cxx", "build", "plugin", "package", "manager"]
 
 [lib]
 name = "cxx"
