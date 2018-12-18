@@ -1,7 +1,7 @@
 [package]
 name = "cargo-cxx"
 version = "0.1.0"
-license = "GPL3"
+license = "GPL"
 authors = ["Rui <2221870259@qq.com>"]
 description = "CXX Pakcage Manager"
 homepage = "https://github.com/ray-cast/cargo-cxx"
