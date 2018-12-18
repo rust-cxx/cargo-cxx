@@ -6,95 +6,224 @@ extern crate serde_json;
 extern crate serde_derive;
 
 use std::env;
+use std::fs;
 use std::fs::File;
 use std::fs::DirBuilder;
+use std::fs::OpenOptions;
 use std::path::Path;
 use std::io::Write;
 use std::io::Read;
-use std::fs::OpenOptions;
 
-use argparse::Store;
-use argparse::ArgumentParser;
-
-use serde_json::Error;
-
-#[derive(Serialize, Deserialize)]
-struct libs
+pub enum LinkType
 {
+	Static,
+	Dynamic,
+	Executables,
 }
 
-
-fn generator_cmake(target:&str, curdir:&str) -> String
+pub struct Config
 {
-	let mut cmake = "CMAKE_MINIMUM_REQUIRED(VERSION 3.0)".to_string();
-	cmake += "\n\n";
-	cmake += &format!("PROJECT({})", target);
-	cmake += "\n\n";
-	cmake += &format!("SET(LIB_NAME {})", target);
-	cmake += "\n\n";
-	cmake += &format!(r#"SET(PROJECT_ROOT_PATH "{}")"#, curdir.replace("\\","/"));
-	cmake += "\n\n";
-	cmake += r#"FILE(GLOB_RECURSE HEADER_LIST "${PROJECT_ROOT_PATH}/include/*.h*")"#;
-	cmake += "\n\n";
-	cmake += r#"FILE(GLOB_RECURSE SOURCE_LIST "${PROJECT_ROOT_PATH}/source/*.c*")"#;
-	cmake += "\n\n";
-	cmake += r#"SOURCE_GROUP(${LIB_NAME} FILES ${HEADER_LIST})"#;
-	cmake += "\n\n";
-	cmake += r#"SOURCE_GROUP(${LIB_NAME} FILES ${SOURCE_LIST})"#;
-	cmake += "\n\n";
-	cmake += r#"ADD_LIBRARY(${LIB_NAME} STATIC ${HEADER_LIST} ${SOURCE_LIST})"#;
-	cmake += "\n\n";
-	cmake += r#"TARGET_LINK_LIBRARIES(${LIB_NAME} PRIVATE imgui)"#;
-	cmake += "\n\n";
-	cmake += r#"TARGET_INCLUDE_DIRECTORIES(${LIB_NAME} PRIVATE "${PROJECT_ROOT_PATH}/include")"#;
-	cmake += "\n\n";
-	cmake += r#"INSTALL(DIRECTORY "${PROJECT_ROOT_PATH}/include/" DESTINATION include)"#;
-	cmake += "\n\n";
-	cmake += r#"INSTALL(TARGETS ${LIB_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib	ARCHIVE DESTINATION lib)"#;
-	cmake += "\n\n";
-	cmake
+	curdir:String,
+	pkg_name:String,
+	profile:String,
+	outpath:String,
+	cmake_dir:std::path::PathBuf,
+	link_type:LinkType,
+	libs:Vec<String>,
+	link_paths:Vec<String>,
+	include_paths:Vec<String>,
 }
 
-pub fn build()
+impl Config
 {
-	let outpath = env::var("OUT_DIR").ok().expect("Can't find OUT_DIR");
-	let pkg_name = env::var("CARGO_PKG_NAME").ok().expect("Can't find CARGO_PKG_NAME");
-	let profile = env::var("PROFILE").ok().expect("Can't find PROFILE");
+	pub fn new() -> Self
+	{
+		let outpath = env::var("OUT_DIR").ok().expect("Can't find OUT_DIR");
+		let curdir = env::var("CARGO_MANIFEST_DIR").ok().expect("Can't find CARGO_MANIFEST_DIR");
 
-	if Path::new("CMakeLists.txt").exists()
-	{
-		cmake::Config::new(".")
-			.profile(&profile)
-			.define("CMAKE_BUILD_TYPE", &profile)
-			.build();
-	}
-	else
-	{
-		if !Path::new(&outpath).join("CMakeLists.txt").exists()
+		Self
 		{
-			let curdir = env::var("CARGO_MANIFEST_DIR").ok().expect("Can't find CARGO_MANIFEST_DIR");
+			pkg_name:env::var("CARGO_PKG_NAME").ok().expect("Can't find CARGO_PKG_NAME"),
+			profile:env::var("PROFILE").ok().expect("Can't find PROFILE"),
+			cmake_dir:Path::new(&outpath).join("../../../").join("cmake-links"),
+			link_type:LinkType::Static,
+			curdir:curdir.replace("\\","/"),
+			outpath:outpath,
+			libs:Vec::new(),
+			link_paths:Vec::new(),
+			include_paths:vec![curdir.replace("\\","/") + "/include"],
+		}
+	}
 
-			let mut file = File::create(&Path::new(&outpath).join("CMakeLists.txt")).unwrap();
-			file.write(generator_cmake(&pkg_name, &curdir).as_bytes()).unwrap();
+	pub fn link_type(&mut self, kind:LinkType)
+	{
+		self.link_type = kind;
+	}
+
+	pub fn set_pkg_name(&mut self, name:&str)
+	{
+		self.pkg_name = name.to_string();
+	}
+
+	pub fn add_include(&mut self, path:String)
+	{
+		self.include_paths.push(path);
+	}
+
+	pub fn add_link_path(&mut self, path:String)
+	{
+		self.link_paths.push(path);
+	}
+
+	pub fn add_lib(&mut self, path:String)
+	{
+		self.libs.push(path);
+	}
+
+	pub fn generator(&self) -> String
+	{
+		let mut cmake = "CMAKE_MINIMUM_REQUIRED(VERSION 3.0)".to_string();
+		cmake += "\n\n";
+		cmake += &format!("PROJECT({})", self.pkg_name);
+		cmake += "\n\n";
+		cmake += &format!("SET(LIB_NAME {})", self.pkg_name);
+		cmake += "\n\n";
+		cmake += &format!(r#"SET(PROJECT_ROOT_PATH "{}")"#, self.curdir);
+		cmake += "\n\n";
+		cmake += r#"FILE(GLOB_RECURSE HEADER_LIST "${PROJECT_ROOT_PATH}/include/*.h*")"#;
+		cmake += "\n";
+		cmake += r#"FILE(GLOB_RECURSE SOURCE_LIST "${PROJECT_ROOT_PATH}/source/*.c*")"#;
+		cmake += "\n\n";
+		cmake += r#"SOURCE_GROUP(${LIB_NAME} FILES ${HEADER_LIST})"#;
+		cmake += "\n";
+		cmake += r#"SOURCE_GROUP(${LIB_NAME} FILES ${SOURCE_LIST})"#;
+		cmake += "\n\n";
+
+		match self.link_type
+		{
+			LinkType::Static => 
+			{
+				cmake += r#"ADD_LIBRARY(${LIB_NAME} STATIC ${HEADER_LIST} ${SOURCE_LIST})"#;
+				cmake += "\n\n";
+			},
+			LinkType::Dynamic => 
+			{
+				cmake += r#"ADD_LIBRARY(${LIB_NAME} SHARED ${HEADER_LIST} ${SOURCE_LIST})"#;
+				cmake += "\n\n";
+			},
+			LinkType::Executables => 
+			{
+				cmake += r#"ADD_EXECUTABLE(${LIB_NAME} ${HEADER_LIST} ${SOURCE_LIST})"#;
+				cmake += "\n\n";
+			},
 		}
 
-		cmake::Config::new(&outpath)
-			.profile(&profile)
-			.define("CMAKE_BUILD_TYPE", &profile)
-			.build();
+		for path in self.link_paths.iter()
+		{
+			cmake += &format!(r#"TARGET_LINK_DIRECTORIES(${{LIB_NAME}} PRIVATE "{}")"#, path);
+			cmake += "\n";
+		}
+
+		cmake += "\n";
+
+		for inc in self.include_paths.iter()
+		{
+			cmake += &format!(r#"TARGET_INCLUDE_DIRECTORIES(${{LIB_NAME}} PRIVATE "{}")"#, inc);
+			cmake += "\n";
+		}
+
+		cmake += "\n";
+
+		for lib in self.libs.iter()
+		{
+			cmake += &format!(r#"TARGET_LINK_LIBRARIES(${{LIB_NAME}} PRIVATE "{}")"#, lib);
+			cmake += "\n";
+		}
+
+		cmake += "\n";
+		cmake += r#"INSTALL(DIRECTORY "${PROJECT_ROOT_PATH}/include/" DESTINATION include)"#;
+		cmake += "\n";
+		cmake += r#"INSTALL(TARGETS ${LIB_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib	ARCHIVE DESTINATION lib)"#;
+		cmake
 	}
 
- 	let mut contents = String::new();
-	let mut json = OpenOptions::new()
-		.create(true)
-		.write(true)
-		.open(&Path::new(&outpath).join("../../../libs.json")).unwrap();
+	pub fn build(&mut self)
+	{
+		if Path::new("CMakeLists.txt").exists()
+		{
+			cmake::Config::new(".")
+				.profile(&self.profile)
+				.define("CMAKE_BUILD_TYPE", &self.profile)
+				.build();
+		}
+		else
+		{
+			if !Path::new(&self.outpath).join("CMakeLists.txt").exists()
+			{
+				if Path::new(&self.cmake_dir).exists()
+				{
+					let entries = fs::read_dir(&self.cmake_dir).unwrap();
+					for entry in entries
+					{
+						let path = entry.unwrap().path();
+						let lib_name = path.file_stem().unwrap().to_str().unwrap().to_string();
+						if lib_name != self.pkg_name
+						{
+							let mut file = File::open(path.as_path()).unwrap();
+							let mut contents = String::new();
+							file.read_to_string(&mut contents).unwrap();
 
-    json.read_to_string(&mut contents);
-	json.write((contents + &outpath).as_bytes()).unwrap();
+							self.add_lib(lib_name);
+							self.add_link_path(contents.replace("\\","/") + "/lib");
+							self.add_include(contents.replace("\\","/") + "/include");
+						}
+					}
+				}
 
-	println!("cargo:rustc-link-search=native={}", outpath+"/lib");
-	println!("cargo:rustc-link-lib=static={}", pkg_name);
+				let mut file = File::create(&Path::new(&self.outpath).join("CMakeLists.txt")).unwrap();
+				file.write(self.generator().as_bytes()).unwrap();
+			}
+
+			cmake::Config::new(&self.outpath)
+				.profile(&self.profile)
+				.define("CMAKE_BUILD_TYPE", &self.profile)
+				.build();
+		}
+
+		DirBuilder::new()
+			.recursive(true)
+			.create(&self.cmake_dir).unwrap();
+
+		let mut file = OpenOptions::new()
+			.create(true)
+			.write(true)
+			.open(&self.cmake_dir.join(format!("{}", self.pkg_name))).unwrap();
+
+		let mut contents = String::new();
+		file.read_to_string(&mut contents);
+		file.write((contents + &self.outpath).as_bytes()).unwrap();
+
+		println!("cargo:rustc-link-search=native={}", self.outpath.clone() + "/lib");
+		println!("cargo:rustc-link-lib=static={}", self.pkg_name);
+	}
+
+	pub fn build_exce(&mut self)
+	{
+		self.link_type = LinkType::Executables;
+		self.build();
+	}
+
+	pub fn build_static_lib(&mut self)
+	{
+		self.link_type = LinkType::Static;
+		self.build();
+	}
+
+	pub fn build_dynamic_lib(&mut self)
+	{
+		self.link_type = LinkType::Dynamic;
+		self.build();
+	}
 }
 
 pub fn new(name:&str)

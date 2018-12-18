@@ -1,10 +1,10 @@
 [package]
-name = "hello"
+name = "basic"
 version = "0.1.0"
 authors = ["Rui <2221870259@qq.com>"]
 edition = "2018"
 build = "build.rs"
-links = "hello"
+links = "basic"
 
 [dependencies.basic-lib]
 path = "../basic-lib"

@@ -1,4 +1,5 @@
 fn main()
 {
-	cmake_cli::build();
+	cmake_cli::Config::new()
+		.build_exce();
 }
