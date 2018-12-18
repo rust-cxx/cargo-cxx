@@ -188,7 +188,7 @@ impl Config
 
 		if Path::new("CMakeLists.txt").exists()
 		{
-			let mut make = cmake::Config::new(&self.outpath);
+			let mut make = cmake::Config::new(".");
 			make.profile(&self.profile);
 			make.define("CMAKE_BUILD_TYPE", &self.profile);
 
