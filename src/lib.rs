@@ -138,7 +138,15 @@ impl Config
 
 		for def in self.defines.iter()
 		{
-			cmake += &format!(r#"TARGET_COMPILE_DEFINITIONS(${{LIB_NAME}} PRIVATE "{}={}")"#, def.0, def.1);
+			if def.1.len() > 0
+			{
+				cmake += &format!(r#"TARGET_COMPILE_DEFINITIONS(${{LIB_NAME}} PRIVATE "{}={}")"#, def.0, def.1);
+			}
+			else
+			{
+				cmake += &format!(r#"TARGET_COMPILE_DEFINITIONS(${{LIB_NAME}} PRIVATE "{}")"#, def.0);
+			}
+
 			cmake += "\n";
 		}
 
@@ -171,6 +179,17 @@ impl Config
 		cmake += "\n";
 		cmake += r#"INSTALL(TARGETS ${LIB_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION lib	ARCHIVE DESTINATION lib)"#;
 		cmake
+	}
+
+	fn copy_dir(src:&Path, dst:&Path)
+	{
+		let entries = fs::read_dir(src).unwrap();
+		for entry in entries
+		{
+			let path = entry.unwrap().path();
+			let filename = path.file_name().unwrap();
+			fs::copy(path.as_path(), dst.join(filename)).unwrap();
+		}
 	}
 
 	pub fn build(&mut self)
@@ -233,11 +252,10 @@ impl Config
 				.build();
 		}
 
-		if self.link_type != LinkType::Executables
-		{
-			println!("cargo:rustc-link-search=native={}", self.outpath.clone() + "/lib");
-			println!("cargo:rustc-link-lib=static={}", self.pkg_name);
-		}
+		Config::copy_dir(
+			&Path::new(&self.outpath).join("bin"), 
+			&Path::new(&self.outpath).join("../../../")
+			);
 	}
 
 	pub fn build_exce(&mut self)
